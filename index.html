@@ -69,6 +69,13 @@ input[type="search"] {
 }
 .chip:hover { border-color: var(--accent); }
 .chip.pick { background: var(--accent-soft); border-color: var(--accent); }
+.chip.active { outline: 2px solid var(--accent); outline-offset: 1px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.keys { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .8rem; color: var(--muted); margin: 0 0 10px; padding: 0; list-style: none; }
+kbd {
+  font: inherit; font-size: .75rem; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 4px; padding: 0 5px; background: var(--bg); color: var(--text);
+}
 .status { font-size: .85rem; color: var(--muted); margin-top: 8px; }
 .status.err { color: var(--warn); }
 .status a { color: inherit; }
@@ -112,6 +119,13 @@ summary { cursor: pointer; }
   </section>
 
   <section class="card write">
+    <ul class="keys" aria-label="キー操作">
+      <li><kbd>Enter</kbd> 次の欄へ</li>
+      <li><kbd>Alt</kbd>+<kbd>J</kbd> 接続詞を選ぶ</li>
+      <li><kbd>Alt</kbd>+<kbd>C</kbd> コピー</li>
+      <li><kbd>Alt</kbd>+<kbd>R</kbd> 書き直す</li>
+      <li><kbd>Alt</kbd>+<kbd>T</kbd> タイマー</li>
+    </ul>
     <div class="row" style="margin:0 0 8px">
       <span>目安は2分</span>
       <span><span class="timer" id="timer">2:00</span>
@@ -123,7 +137,7 @@ summary { cursor: pointer; }
     <div class="row"><span id="c1">0字</span><span id="n1"></span></div>
 
     <label for="s2" style="margin-top:12px">2文目：接続詞 ＋ 理由・根拠 <span class="hint">（約40字）</span></label>
-    <textarea id="s2" rows="2" placeholder="下の辞書から接続詞を選ぶと、ここの先頭に入ります。"></textarea>
+    <textarea id="s2" rows="2" placeholder="Alt+J で接続詞を選ぶと、ここの先頭に入ります。"></textarea>
     <div class="row"><span id="c2">0字</span><span id="n2"></span></div>
     <div class="actions" style="justify-content:flex-end;margin-top:8px">
       <button class="main" id="copy" type="button">コピー</button>
@@ -137,7 +151,7 @@ summary { cursor: pointer; }
       <label class="toggle"><input type="checkbox" id="kanaOnly" checked> かな表記のみ</label>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
-      <input type="search" id="q" placeholder="しぼりこみ（例：しか）">
+      <input type="search" id="q" placeholder="しぼりこみ（例：しか）　↑↓←→で選んでEnter・Escで戻る">
     </div>
     <div class="groups-wrap">
       <div class="groups" id="chips" aria-live="polite"></div>
@@ -245,8 +259,42 @@ function renderChips() {
   }).filter(Boolean);
   box.replaceChildren(...sections);
   if (!sections.length && words.length) box.textContent = "該当なし"; // 読み込み中は出さない
+  setActive(activeIndex);
   syncBar();
 }
+
+// --- キーボードで接続詞を選ぶ（しぼりこみ欄で ↑↓←→ / Enter / Esc） ---
+let activeIndex = 0;
+const visibleChips = () => [...document.querySelectorAll("#chips .chip")];
+function setActive(i) {
+  const chips = visibleChips();
+  chips.forEach((c) => c.classList.remove("active"));
+  if (!chips.length) return;
+  activeIndex = Math.max(0, Math.min(chips.length - 1, i));
+  // 欄にフォーカスがあるときだけ枠を出す
+  if (document.activeElement === $("q")) {
+    chips[activeIndex].classList.add("active");
+    chips[activeIndex].scrollIntoView({ block: "nearest" });
+  }
+}
+$("q").addEventListener("focus", () => setActive(activeIndex));
+$("q").addEventListener("blur", () => visibleChips().forEach((c) => c.classList.remove("active")));
+$("q").addEventListener("keydown", (e) => {
+  if (e.isComposing || e.keyCode === 229) return; // 日本語変換中の Enter などは変換に使う
+  const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+  if (step && !(["ArrowLeft", "ArrowRight"].includes(e.key) && $("q").value)) {
+    // 左右は、しぼりこみ文字が空のときだけ選択の移動に使う（文字があればカーソル移動）
+    e.preventDefault(); setActive(activeIndex + step);
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    const c = visibleChips()[activeIndex];
+    if (c) { $("q").value = ""; activeIndex = 0; insertConj(c.textContent); }
+  } else if (e.key === "Escape") {
+    e.preventDefault(); $("q").value = ""; activeIndex = 0; renderChips(); focusEnd(s2);
+  }
+});
+$("q").addEventListener("input", () => { activeIndex = 0; });
+function focusEnd(el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
 
 // --- 自前のスクロールバー（常に表示） ---
 function syncBar() {
@@ -357,6 +405,27 @@ $("copy").onclick = async () => {
   catch { $("copy").textContent = "コピーできませんでした"; }
   setTimeout(() => ($("copy").textContent = "コピー"), 1500);
 };
+
+// --- 文章欄の Enter：1文目 → 2文目へ。改行は入れない（R80は2文だけ） ---
+s1.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;
+  e.preventDefault(); focusEnd(s2);
+});
+s2.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.isComposing && e.keyCode !== 229) e.preventDefault();
+});
+
+// --- Alt ショートカット（e.code で判定：日本語入力がオンでも効く） ---
+document.addEventListener("keydown", (e) => {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return;
+  const act = {
+    KeyJ: () => { $("q").focus(); $("q").select(); },
+    KeyC: () => $("copy").click(),
+    KeyR: () => $("clear").click(),
+    KeyT: () => $("timerBtn").click(),
+  }[e.code];
+  if (act) { e.preventDefault(); act(); }
+});
 $("clear").onclick = () => {
   s1.value = ""; s2.value = ""; left = 120; showTime(); update(); s1.focus();
 };
