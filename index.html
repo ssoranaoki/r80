@@ -50,7 +50,12 @@ input[type="search"] {
   font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--bg); color: var(--text); min-width: 0; flex: 1 1 160px;
 }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; max-height: 240px; overflow-y: auto; }
+.groups { margin-top: 10px; max-height: 420px; overflow-y: auto; }
+.group { padding: 8px 0; border-top: 1px solid var(--line); }
+.group:first-child { border-top: none; }
+.group h3 { font-size: .95rem; margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.group h3 .role { font-weight: 400; color: var(--muted); font-size: .85rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .chip {
   font: inherit; font-size: .95rem; border: 1px solid var(--line); background: var(--bg);
   color: var(--text); border-radius: 999px; padding: 3px 12px; cursor: pointer;
@@ -103,7 +108,7 @@ summary { cursor: pointer; }
     <div style="display:flex;gap:8px;margin-top:8px">
       <input type="search" id="q" placeholder="しぼりこみ（例：しか）">
     </div>
-    <div class="chips" id="chips" aria-live="polite"></div>
+    <div class="groups" id="chips" aria-live="polite"></div>
     <div class="status" id="status">辞書を読み込み中…</div>
   </section>
 
@@ -129,6 +134,24 @@ summary { cursor: pointer; }
 const API = "https://ja.wiktionary.org/w/api.php";
 const CATEGORY = "Category:日本語 接続詞";
 const FALLBACK = ["なぜなら", "しかし", "だから"]; // task.txt に例として載っている3語
+// 接続の種類。語の一覧は辞書から取り、種類分けはこの表で行う
+// （Wiktionaryの本文には種類がほとんど書かれていないため）。表にない語は「その他」へ。
+const TYPES = [
+  { name: "説明・補足", role: "前の文の理由・言いかえ・補足を書く", words:
+    ["なぜなら", "なぜならば", "けだし", "つまり", "すなわち", "ただ", "ただし", "なお", "ちなみに", "ちな", "もっとも", "ために", "以上"] },
+  { name: "順接", role: "前の文から当然の結果・結論を書く", words:
+    ["だから", "それで", "したがって", "よって", "ゆえに", "それゆえ", "ですから", "なので", "すると", "かくて", "こうして", "それなら", "だったら", "なら", "したら", "ほんなら", "ほな", "しからば", "しかれば", "さらば", "ここに", "で", "と", "故"] },
+  { name: "逆接", role: "前の文と反対・予想外のことを書く", words:
+    ["しかし", "しかしながら", "だが", "が", "でも", "けれども", "けれど", "けど", "だけど", "だけれども", "ところが", "とはいえ", "それでも", "それでいて", "そのくせ", "なのに", "にもかかわらず", "しかるに", "しかれども", "なれども", "さりとて", "さりながら", "じゃが", "ばってん"] },
+  { name: "並列・添加", role: "前の文に並べる・付け足す", words:
+    ["そして", "また", "しかも", "そのうえ", "それに", "それから", "くわえて", "および", "ならびに", "かつ", "なおかつ", "それどころか", "しかのみならず", "おなじく", "そうして", "しかして", "しこうして", "して", "ついで", "つぎに", "しかるのち", "かたがた", "かたわら", "且", "又", "復", "同時に"] },
+  { name: "対比・選択", role: "前の文と比べる・どちらかを選ぶ", words:
+    ["または", "あるいは", "もしくは", "それとも", "そのかわり", "又は", "乃至"] },
+  { name: "転換", role: "話題を変える", words:
+    ["さて", "ところで", "ときに", "そもそも", "では", "それでは", "じゃ", "じゃあ", "それじゃ", "それじゃあ"] },
+];
+const OTHER = { name: "その他", role: "上の表にない語（算数の言葉・古語など）" };
+const typeOf = new Map(TYPES.flatMap((t) => t.words.map((w) => [w, t])));
 const $ = (id) => document.getElementById(id);
 const s1 = $("s1"), s2 = $("s2");
 
@@ -173,17 +196,34 @@ function renderChips() {
   const current = leadingConj(s2.value);
   const list = words
     .filter((w) => !kana || usingFallback || /^[ぁ-ゟ゠-ヿー]+$/.test(w))
-    .filter((w) => !q || w.includes(q))
-    .sort((a, b) => a.localeCompare(b, "ja"));
+    .filter((w) => !q || w.includes(q));
   const box = $("chips");
-  box.replaceChildren(...list.map((w) => {
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "chip" + (w === current ? " pick" : "");
-    b.textContent = w;
-    b.onclick = () => insertConj(w);
-    return b;
-  }));
-  if (!list.length) box.textContent = "該当なし";
+  const sections = [...TYPES, OTHER].map((t) => {
+    // 種類の中は表に書いた順（よく使う語が先）。「その他」は五十音順
+    const ws = t === OTHER
+      ? list.filter((w) => !typeOf.has(w)).sort((a, b) => a.localeCompare(b, "ja"))
+      : t.words.filter((w) => list.includes(w));
+    if (!ws.length) return null;
+    const sec = document.createElement("div");
+    sec.className = "group";
+    const h = document.createElement("h3");
+    const role = document.createElement("span");
+    role.className = "role"; role.textContent = t.role;
+    h.append(t.name, role);
+    const chips = document.createElement("div");
+    chips.className = "chips";
+    chips.append(...ws.map((w) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "chip" + (w === current ? " pick" : "");
+      b.textContent = w;
+      b.onclick = () => insertConj(w);
+      return b;
+    }));
+    sec.append(h, chips);
+    return sec;
+  }).filter(Boolean);
+  box.replaceChildren(...sections);
+  if (!sections.length) box.textContent = "該当なし";
 }
 
 // 2文目の先頭にある接続詞（最長一致）
@@ -220,7 +260,7 @@ function update() {
   const checks = [
     [a && b, "2文とも書いた"],
     [!a || !b ? null : oneSentence(a) && oneSentence(b), "それぞれ1文（途中に「。」がない）"],
-    [!b ? null : !!conj, conj ? `2文目が接続詞「${conj}」で始まる` : "2文目が接続詞で始まる"],
+    [!b ? null : !!conj, conj ? `2文目が接続詞「${conj}」（${(typeOf.get(conj) || OTHER).name}）で始まる` : "2文目が接続詞で始まる"],
     [total === 0 ? null : total <= 80, `80字以内（あと${80 - total}字）`],
   ];
   $("checks").replaceChildren(...checks.map(([ok, text]) => {
