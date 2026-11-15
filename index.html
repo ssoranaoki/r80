@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R80 練習帳</title>
+<style>
+:root {
+  --bg: #f6f4ef; --card: #ffffff; --text: #23211c; --muted: #6b675d;
+  --line: #ddd8cc; --accent: #2f6b4f; --accent-soft: #e3efe8;
+  --warn: #b5541c; --warn-soft: #fbeadf; --ok: #2f6b4f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171815; --card: #22231f; --text: #ecebe6; --muted: #a29f94;
+    --line: #3a3b35; --accent: #7cc39c; --accent-soft: #263a2f;
+    --warn: #f0a073; --warn-soft: #3e2a1f; --ok: #7cc39c;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", system-ui, sans-serif;
+  line-height: 1.7;
+}
+main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+.lead { color: var(--muted); margin: 0 0 20px; font-size: .95rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+label { display: block; font-weight: 600; margin-bottom: 6px; }
+.hint { font-weight: 400; color: var(--muted); font-size: .85rem; }
+textarea {
+  width: 100%; font: inherit; font-size: 1.05rem; color: var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; resize: vertical; min-height: 3.6em;
+}
+textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; font-size: .85rem; color: var(--muted); }
+.meter { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
+.meter > div { height: 100%; background: var(--accent); width: 0; transition: width .15s; }
+.meter.over > div { background: var(--warn); }
+.total { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.checks { list-style: none; padding: 0; margin: 8px 0 0; }
+.checks li { padding: 2px 0; }
+.checks li::before { content: "○ "; color: var(--muted); }
+.checks li.ok::before { content: "✔ "; color: var(--ok); }
+.checks li.ng::before { content: "✖ "; color: var(--warn); }
+.conj-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+input[type="search"] {
+  font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--text); min-width: 0; flex: 1 1 160px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; max-height: 240px; overflow-y: auto; }
+.chip {
+  font: inherit; font-size: .95rem; border: 1px solid var(--line); background: var(--bg);
+  color: var(--text); border-radius: 999px; padding: 3px 12px; cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); }
+.chip.pick { background: var(--accent-soft); border-color: var(--accent); }
+.status { font-size: .85rem; color: var(--muted); margin-top: 8px; }
+.status.err { color: var(--warn); }
+.status a { color: inherit; }
+.toggle { font-size: .85rem; color: var(--muted); display: flex; align-items: center; gap: 4px; font-weight: 400; margin: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button.main, button.sub {
+  font: inherit; border-radius: 8px; padding: 8px 16px; cursor: pointer; border: 1px solid var(--accent);
+}
+button.main { background: var(--accent); color: var(--card); }
+button.sub { background: transparent; color: var(--accent); }
+.timer { font-variant-numeric: tabular-nums; font-weight: 700; }
+.preview { font-size: 1.1rem; white-space: pre-wrap; min-height: 1.7em; }
+.preview .cj { background: var(--accent-soft); border-radius: 4px; padding: 0 2px; }
+details { font-size: .9rem; color: var(--muted); }
+summary { cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <h1>R80 練習帳</h1>
+  <p class="lead">考えを<strong>2文・80字以内</strong>でパッと書く。2文目は必ず<strong>接続詞</strong>から始める。</p>
+
+  <section class="card">
+    <div class="row" style="margin:0 0 8px">
+      <span>目安は2分</span>
+      <span><span class="timer" id="timer">2:00</span>
+        <button class="sub" id="timerBtn" type="button" style="padding:2px 10px;margin-left:6px">スタート</button></span>
+    </div>
+
+    <label for="s1">1文目：結論 <span class="hint">（約40字）</span></label>
+    <textarea id="s1" rows="2" placeholder="例：朝の10分読書は続けるべきだ。"></textarea>
+    <div class="row"><span id="c1">0字</span><span id="n1"></span></div>
+
+    <label for="s2" style="margin-top:12px">2文目：接続詞 ＋ 理由・根拠 <span class="hint">（約40字）</span></label>
+    <textarea id="s2" rows="2" placeholder="下の辞書から接続詞を選ぶと、ここの先頭に入ります。"></textarea>
+    <div class="row"><span id="c2">0字</span><span id="n2"></span></div>
+  </section>
+
+  <section class="card">
+    <div class="conj-head">
+      <strong>接続詞（Wiktionary日本語版より）</strong>
+      <label class="toggle"><input type="checkbox" id="kanaOnly" checked> かな表記のみ</label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input type="search" id="q" placeholder="しぼりこみ（例：しか）">
+    </div>
+    <div class="chips" id="chips" aria-live="polite"></div>
+    <div class="status" id="status">辞書を読み込み中…</div>
+  </section>
+
+  <section class="card">
+    <div class="row" style="margin:0"><span>合計</span><span><span class="total" id="total">0</span> / 80字</span></div>
+    <div class="meter" id="meter"><div></div></div>
+    <ul class="checks" id="checks"></ul>
+    <p class="preview" id="preview"></p>
+    <div class="actions">
+      <button class="main" id="copy" type="button">コピー</button>
+      <button class="sub" id="clear" type="button">書き直す</button>
+    </div>
+  </section>
+
+  <details>
+    <summary>R80とは</summary>
+    <p>茨城県の元校長・中島博司氏が考案した、自分の考えを80字以内で論理的に書くトレーニング。R は振り返り（Reflection）と再構築（Restructure）、80 は80字以内の意味。結論（1文目）と理由（2文目）をセットにする癖がつき、400字の作文も「R80を5回」と考えられるようになる。</p>
+    <p>字数は句読点・記号を含め、改行は数えません。</p>
+  </details>
+</main>
+
+<script>
+const API = "https://ja.wiktionary.org/w/api.php";
+const CATEGORY = "Category:日本語 接続詞";
+const FALLBACK = ["なぜなら", "しかし", "だから"]; // task.txt に例として載っている3語
+const $ = (id) => document.getElementById(id);
+const s1 = $("s1"), s2 = $("s2");
+
+let words = [];        // 辞書から取った接続詞
+let usingFallback = false;
+
+const len = (s) => [...s.replace(/[\r\n]/g, "")].length;
+
+// --- 辞書の取得 ---
+async function loadConjunctions() {
+  const all = [];
+  let cont = {};
+  try {
+    do {
+      const p = new URLSearchParams({
+        action: "query", list: "categorymembers", cmtitle: CATEGORY,
+        cmlimit: "500", cmnamespace: "0", format: "json", origin: "*", ...cont,
+      });
+      const res = await fetch(`${API}?${p}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      all.push(...data.query.categorymembers.map((m) => m.title));
+      cont = data.continue || null;
+    } while (cont);
+    if (!all.length) throw new Error("0件");
+    words = all;
+    const src = `https://ja.wiktionary.org/wiki/${encodeURIComponent(CATEGORY)}`;
+    $("status").innerHTML = `出典：<a href="${src}" target="_blank" rel="noopener">ウィクショナリー日本語版「日本語 接続詞」</a>（${all.length}語・CC BY-SA）。チップを押すと2文目の先頭に入ります。`;
+  } catch (e) {
+    words = FALLBACK;
+    usingFallback = true;
+    $("status").className = "status err";
+    $("status").textContent = `辞書を取得できませんでした（${e.message}）。代わりに例の3語だけ表示しています。`;
+  }
+  renderChips();
+  update();
+}
+
+function renderChips() {
+  const q = $("q").value.trim();
+  const kana = $("kanaOnly").checked;
+  const current = leadingConj(s2.value);
+  const list = words
+    .filter((w) => !kana || usingFallback || /^[ぁ-ゟ゠-ヿー]+$/.test(w))
+    .filter((w) => !q || w.includes(q))
+    .sort((a, b) => a.localeCompare(b, "ja"));
+  const box = $("chips");
+  box.replaceChildren(...list.map((w) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip" + (w === current ? " pick" : "");
+    b.textContent = w;
+    b.onclick = () => insertConj(w);
+    return b;
+  }));
+  if (!list.length) box.textContent = "該当なし";
+}
+
+// 2文目の先頭にある接続詞（最長一致）
+function leadingConj(text) {
+  const t = text.trimStart();
+  let best = "";
+  for (const w of words) if (t.startsWith(w) && w.length > best.length) best = w;
+  return best;
+}
+
+function insertConj(w) {
+  let body = s2.value.trimStart();
+  const old = leadingConj(body);
+  if (old) body = body.slice(old.length).replace(/^[、,，\s]+/, "");
+  s2.value = `${w}、${body}`;
+  s2.focus();
+  s2.setSelectionRange(s2.value.length, s2.value.length);
+  update();
+}
+
+// --- 判定と表示 ---
+function update() {
+  const a = s1.value.trim(), b = s2.value.trim();
+  const la = len(a), lb = len(b), total = la + lb;
+  $("c1").textContent = `${la}字`; $("c2").textContent = `${lb}字`;
+  $("n1").textContent = la > 50 ? "長め。40字前後に" : "";
+  $("n2").textContent = lb > 50 ? "長め。40字前後に" : "";
+  $("total").textContent = total;
+  $("meter").firstElementChild.style.width = Math.min(100, total / 80 * 100) + "%";
+  $("meter").classList.toggle("over", total > 80);
+
+  const conj = leadingConj(b);
+  const oneSentence = (s) => s.length > 0 && !/[。！？!?].+/.test(s); // 文の途中に句点がない
+  const checks = [
+    [a && b, "2文とも書いた"],
+    [!a || !b ? null : oneSentence(a) && oneSentence(b), "それぞれ1文（途中に「。」がない）"],
+    [!b ? null : !!conj, conj ? `2文目が接続詞「${conj}」で始まる` : "2文目が接続詞で始まる"],
+    [total === 0 ? null : total <= 80, `80字以内（あと${80 - total}字）`],
+  ];
+  $("checks").replaceChildren(...checks.map(([ok, text]) => {
+    const li = document.createElement("li");
+    li.className = ok === null || ok === "" ? "" : ok ? "ok" : "ng";
+    li.textContent = text;
+    return li;
+  }));
+
+  const end = (s) => (s && !/[。！？!?]$/.test(s) ? s + "。" : s);
+  const pv = $("preview");
+  pv.replaceChildren();
+  if (a) pv.append(end(a));
+  if (b) {
+    if (conj) {
+      const span = document.createElement("span");
+      span.className = "cj"; span.textContent = conj;
+      pv.append(span, end(b.slice(conj.length)));
+    } else pv.append(end(b));
+  }
+  renderChips();
+  try { localStorage.setItem("r80-draft", JSON.stringify([s1.value, s2.value])); } catch {}
+}
+
+// --- タイマー（2分） ---
+let timerId = null, left = 120;
+function showTime() { $("timer").textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`; }
+$("timerBtn").onclick = () => {
+  if (timerId) { clearInterval(timerId); timerId = null; $("timerBtn").textContent = "スタート"; return; }
+  if (left <= 0) left = 120;
+  $("timerBtn").textContent = "ストップ";
+  timerId = setInterval(() => {
+    left--; showTime();
+    if (left <= 0) { clearInterval(timerId); timerId = null; $("timerBtn").textContent = "もう一度"; $("timer").textContent = "時間です"; }
+  }, 1000);
+  s1.focus();
+};
+
+$("copy").onclick = async () => {
+  const text = $("preview").textContent;
+  if (!text) return;
+  try { await navigator.clipboard.writeText(text); $("copy").textContent = "コピーしました"; }
+  catch { $("copy").textContent = "コピーできませんでした"; }
+  setTimeout(() => ($("copy").textContent = "コピー"), 1500);
+};
+$("clear").onclick = () => {
+  s1.value = ""; s2.value = ""; left = 120; showTime(); update(); s1.focus();
+};
+
+s1.addEventListener("input", update);
+s2.addEventListener("input", update);
+$("q").addEventListener("input", renderChips);
+$("kanaOnly").addEventListener("change", renderChips);
+
+try {
+  const d = JSON.parse(localStorage.getItem("r80-draft") || "null");
+  if (Array.isArray(d)) { s1.value = d[0] || ""; s2.value = d[1] || ""; }
+} catch {}
+update();
+loadConjunctions();
+</script>
+</body>
+</html>
