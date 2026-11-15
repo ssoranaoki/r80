@@ -179,7 +179,7 @@ async function loadConjunctions() {
     if (!all.length) throw new Error("0件");
     words = all;
     const src = `https://ja.wiktionary.org/wiki/${encodeURIComponent(CATEGORY)}`;
-    $("status").innerHTML = `出典：<a href="${src}" target="_blank" rel="noopener">ウィクショナリー日本語版「日本語 接続詞」</a>（${all.length}語・CC BY-SA）。チップを押すと2文目の先頭に入ります。`;
+    $("status").innerHTML = `出典：<a href="${src}" target="_blank" rel="noopener">ウィクショナリー日本語版「日本語 接続詞」</a>（${all.length}語・CC BY-SA）のうち、種類に分けた${all.filter((w) => typeOf.has(w)).length}語を表示。チップを押すと2文目の先頭に入ります。`;
   } catch (e) {
     words = FALLBACK;
     usingFallback = true;
@@ -198,11 +198,9 @@ function renderChips() {
     .filter((w) => !kana || usingFallback || /^[ぁ-ゟ゠-ヿー]+$/.test(w))
     .filter((w) => !q || w.includes(q));
   const box = $("chips");
-  const sections = [...TYPES, OTHER].map((t) => {
-    // 種類の中は表に書いた順（よく使う語が先）。「その他」は五十音順
-    const ws = t === OTHER
-      ? list.filter((w) => !typeOf.has(w)).sort((a, b) => a.localeCompare(b, "ja"))
-      : t.words.filter((w) => list.includes(w));
+  // 「その他」（表にない語）は表示しない。種類の中は表に書いた順（よく使う語が先）
+  const sections = TYPES.map((t) => {
+    const ws = t.words.filter((w) => list.includes(w));
     if (!ws.length) return null;
     const sec = document.createElement("div");
     sec.className = "group";
