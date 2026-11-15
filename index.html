@@ -91,8 +91,8 @@ details { font-size: .9rem; color: var(--muted); }
     grid-template-rows: auto auto auto 1fr; /* 余った高さは最後の行へ（入力と結果の間を空けない） */
   }
   main > h1, main > .lead, main > details { grid-column: 1 / -1; }
-  .write { grid-column: 1; grid-row: 3; }
-  .result { grid-column: 1; grid-row: 4; }
+  .result { grid-column: 1; grid-row: 3; }
+  .write { grid-column: 1; grid-row: 4; }
   .conj { grid-column: 2; grid-row: 3 / span 2; position: sticky; top: 16px; }
   .conj .groups { max-height: calc(100vh - 340px); } /* 欄全体を画面の高さに収める */
 }
@@ -103,6 +103,13 @@ summary { cursor: pointer; }
 <main>
   <h1>R80 練習帳</h1>
   <p class="lead">考えを<strong>2文・80字以内</strong>でパッと書く。2文目は必ず<strong>接続詞</strong>から始める。</p>
+
+  <section class="card result">
+    <div class="row" style="margin:0"><span>合計</span><span><span class="total" id="total">0</span> / 80字</span></div>
+    <div class="meter" id="meter"><div></div></div>
+    <ul class="checks" id="checks"></ul>
+    <p class="preview" id="preview"></p>
+  </section>
 
   <section class="card write">
     <div class="row" style="margin:0 0 8px">
@@ -119,6 +126,7 @@ summary { cursor: pointer; }
     <textarea id="s2" rows="2" placeholder="下の辞書から接続詞を選ぶと、ここの先頭に入ります。"></textarea>
     <div class="row"><span id="c2">0字</span><span id="n2"></span></div>
     <div class="actions" style="justify-content:flex-end;margin-top:8px">
+      <button class="main" id="copy" type="button">コピー</button>
       <button class="sub" id="clear" type="button">書き直す</button>
     </div>
   </section>
@@ -136,16 +144,6 @@ summary { cursor: pointer; }
       <div class="bar" id="bar" aria-hidden="true"><div class="thumb" id="thumb"></div></div>
     </div>
     <div class="status" id="status">辞書を読み込み中…</div>
-  </section>
-
-  <section class="card result">
-    <div class="row" style="margin:0"><span>合計</span><span><span class="total" id="total">0</span> / 80字</span></div>
-    <div class="meter" id="meter"><div></div></div>
-    <ul class="checks" id="checks"></ul>
-    <p class="preview" id="preview"></p>
-    <div class="actions">
-      <button class="main" id="copy" type="button">コピー</button>
-    </div>
   </section>
 
   <details>
