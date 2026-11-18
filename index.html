@@ -30,7 +30,14 @@ h1 { font-family: var(--mincho); font-size: 2rem; font-weight: 700; letter-spaci
   color: var(--shu); border: 1.5px solid var(--shu); border-radius: 3px; padding: 3px 1px;
   transform: rotate(-4deg); opacity: .9;
 }
-h2, label, .group h3, .conj-head strong, .total { font-family: var(--mincho); }
+h2, label, .group h3, .total, .hist-list .preview { font-family: var(--mincho); }
+/* 欄の見出し：下に朱の筆の払い */
+.ttl { font-size: 1.1rem; font-weight: 700; margin: 0 0 12px; }
+.ttl::after {
+  content: ""; display: block; width: 56px; height: 7px; margin-top: 2px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M1 7 C20 3 60 2 119 5 C90 7 50 10 4 9 Z' fill='%23b8432a' fill-opacity='.75'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
+}
+.conj-head .ttl { margin: 0; }
 .lead { color: var(--muted); margin: 0 0 20px; font-size: .95rem; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
 label { display: block; font-weight: 600; margin-bottom: 6px; }
@@ -95,6 +102,7 @@ input[type="search"] {
 .group { padding: 8px 0; border-top: 1px solid var(--line); }
 .group:first-child { border-top: none; }
 .group h3 { font-size: .95rem; margin: 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.group h3::after { content: ""; flex: 1 1 24px; border-bottom: 1px solid var(--line); align-self: center; }
 .group h3 .role { font-weight: 400; color: var(--muted); font-size: .85rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .chip {
@@ -102,7 +110,7 @@ input[type="search"] {
   color: var(--text); border-radius: 999px; padding: 3px 12px; cursor: pointer;
 }
 .chip:hover { border-color: var(--accent); }
-.chip.pick { background: var(--accent-soft); border-color: var(--accent); }
+.chip.pick { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
 .chip.active { outline: 2px solid var(--accent); outline-offset: 1px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .keys { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .8rem; color: var(--muted); margin: 0 0 10px; padding: 0; list-style: none; }
@@ -124,7 +132,6 @@ button.sub { background: transparent; color: var(--accent); }
 .preview { font-size: 1.1rem; white-space: pre-wrap; min-height: 1.7em; }
 .preview .cj { background: var(--accent-soft); border-radius: 4px; padding: 0 2px; }
 details { font-size: .9rem; color: var(--muted); }
-.history h2 { font-size: 1.05rem; margin: 0 0 8px; }
 .history .empty { color: var(--muted); font-size: .9rem; margin: 0; }
 .hist-list { list-style: none; padding: 0; margin: 0; }
 .hist-list li { border-top: 1px solid var(--line); padding: 10px 0; }
@@ -132,9 +139,10 @@ details { font-size: .9rem; color: var(--muted); }
 .hist-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .hist-meta .ok { color: var(--ok); }
 .hist-meta .ng { color: var(--warn); }
-.hist-list .preview { margin: 4px 0; font-size: 1rem; }
+.hist-list .preview { margin: 4px 0; font-size: 1.02rem; }
 .hist-list .actions { justify-content: flex-end; }
-.hist-list button { padding: 2px 12px; font-size: .85rem; }
+.hist-list button { padding: 2px 12px; font-size: .85rem; border-color: var(--line); color: var(--muted); }
+.hist-list button:hover { border-color: var(--accent); color: var(--accent); }
 .more { display: block; margin: 8px auto 0; }
 .more[hidden] { display: none; } /* display:block が hidden 属性を上書きしないように */
 input[type="checkbox"] { accent-color: var(--accent); }
@@ -160,6 +168,7 @@ summary { cursor: pointer; }
   <p class="lead">考えを<strong>2文・80字以内</strong>でパッと書く。2文目は必ず<strong>接続詞</strong>から始める。</p>
 
   <section class="card result">
+    <h2 class="ttl">結果</h2>
     <div class="row" style="margin:0"><span>合計</span><span><span class="total" id="total">0</span> / 80字</span></div>
     <div class="meter" id="meter"><div></div></div>
     <ul class="checks" id="checks"></ul>
@@ -167,6 +176,7 @@ summary { cursor: pointer; }
   </section>
 
   <section class="card write">
+    <h2 class="ttl">書く</h2>
     <ul class="keys" aria-label="キー操作">
       <li><kbd>Enter</kbd> 次の欄へ</li>
       <li><kbd>Alt</kbd>+<kbd>J</kbd> 接続詞を選ぶ</li>
@@ -195,7 +205,7 @@ summary { cursor: pointer; }
 
   <section class="card conj">
     <div class="conj-head">
-      <strong>接続詞（Wiktionary日本語版より）</strong>
+      <h2 class="ttl">接続詞を選ぶ</h2>
       <label class="toggle"><input type="checkbox" id="kanaOnly" checked> かな表記のみ</label>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -209,7 +219,7 @@ summary { cursor: pointer; }
   </section>
 
   <section class="card history">
-    <h2>履歴（<span id="histCount">0</span>本）</h2>
+    <h2 class="ttl">履歴（<span id="histCount">0</span>本）</h2>
     <p class="empty" id="histEmpty">「残す」を押すと、ここに日付つきで積み上がっていきます。</p>
     <ul class="hist-list" id="histList"></ul>
     <button class="sub more" id="more" type="button" hidden></button>
