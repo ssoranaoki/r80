@@ -4,18 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>R80 練習帳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #f6f4ef; --card: #ffffff; --text: #23211c; --muted: #6b675d;
   --line: #ddd8cc; --accent: #2f6b4f; --accent-soft: #e3efe8;
   --warn: #b5541c; --warn-soft: #fbeadf; --ok: #2f6b4f;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #171815; --card: #22231f; --text: #ecebe6; --muted: #a29f94;
-    --line: #3a3b35; --accent: #7cc39c; --accent-soft: #263a2f;
-    --warn: #f0a073; --warn-soft: #3e2a1f; --ok: #7cc39c;
-  }
+  --paper: #fbf6ec; --shu: #d9573b; --shu-line: #ecb3a4;
+  --mincho: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
 }
 * { box-sizing: border-box; }
 body {
@@ -35,6 +33,34 @@ textarea {
   padding: 10px 12px; resize: vertical; min-height: 3.6em;
 }
 textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+/* --- 原稿用紙のマス目入力欄 ---
+   1文字＝1マス。文字の送り幅（字の大きさ＋字間）をマスの幅にそろえ、背景にマス目を描く。
+   半角英数字は入力時に全角へ変える（半角だと幅が半分になり、マスからずれるため）。 */
+.genko-wrap { container-type: inline-size; }
+.genko {
+  --cols: 20;                                            /* 1行のマス数（原稿用紙と同じ20字） */
+  --cell: min(30px, calc(100cqi / var(--cols)));         /* 欄の幅に合わせてマスを縮める */
+  --fs: calc(var(--cell) * .66);                         /* 字の大きさ */
+  --pad: calc((var(--cell) - var(--fs)) / 2);            /* 字をマスの真ん中に置く余白 */
+  width: calc(var(--cell) * var(--cols) + 1px); overflow: hidden;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(to right, var(--shu-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--shu-line) 1px, transparent 1px);
+  background-size: var(--cell) var(--cell);
+  border-right: 1px solid var(--shu-line); border-bottom: 1px solid var(--shu-line);
+}
+@container (max-width: 479px) { .genko { --cols: 10; } } /* 狭い画面は1行10マス */
+.genko:focus-within { outline: 2px solid var(--shu); outline-offset: 2px; }
+.genko textarea {
+  display: block; margin: 0; border: 0; border-radius: 0; outline: none; resize: none; overflow: hidden;
+  width: calc(var(--cell) * var(--cols) + var(--pad) + .5px); min-height: 0;
+  padding: 0 0 0 var(--pad); background: transparent; color: var(--text);
+  font-family: var(--mincho); font-size: var(--fs); line-height: var(--cell);
+  letter-spacing: calc(var(--cell) - var(--fs));
+  line-break: anywhere; word-break: break-all; overflow-wrap: anywhere; /* 禁則で行末がずれないように */
+}
+.genko textarea::placeholder { color: #c9bfb0; }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; font-size: .85rem; color: var(--muted); }
 .meter { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
 .meter > div { height: 100%; background: var(--accent); width: 0; transition: width .15s; }
@@ -145,12 +171,12 @@ summary { cursor: pointer; }
     </div>
 
     <label for="s1">1文目：結論 <span class="hint">（約40字）</span></label>
-    <textarea id="s1" rows="2" placeholder="例：朝の10分読書は続けるべきだ。"></textarea>
-    <div class="row"><span id="c1">0字</span><span id="n1"></span></div>
+    <div class="genko-wrap"><div class="genko"><textarea id="s1" rows="2" placeholder="例：朝の１０分読書は続けるべきだ。"></textarea></div></div>
+    <div class="row"><span id="c1">0 / 40字</span><span id="n1"></span></div>
 
     <label for="s2" style="margin-top:12px">2文目：接続詞 ＋ 理由・根拠 <span class="hint">（約40字）</span></label>
-    <textarea id="s2" rows="2" placeholder="Alt+J で接続詞を選ぶと、ここの先頭に入ります。"></textarea>
-    <div class="row"><span id="c2">0字</span><span id="n2"></span></div>
+    <div class="genko-wrap"><div class="genko"><textarea id="s2" rows="2" placeholder="接続詞から書く（Ａｌｔ＋Ｊで選ぶ）"></textarea></div></div>
+    <div class="row"><span id="c2">0 / 40字</span><span id="n2"></span></div>
     <div class="actions" style="justify-content:flex-end;margin-top:8px">
       <button class="main" id="save" type="button" title="履歴に残し、クリップボードにコピーして、次の1本へ">残す</button>
       <button class="sub" id="clear" type="button">書き直す</button>
@@ -215,6 +241,23 @@ let words = [];        // 辞書から取った接続詞
 let usingFallback = false;
 
 const len = (s) => [...s.replace(/[\r\n]/g, "")].length;
+
+// --- マス目入力欄：半角→全角、行数を中身に合わせる ---
+// 半角英数字・記号（! 〜 ~）は全角（＋0xFEE0）、半角スペースは全角スペースへ。1文字→1文字なのでカーソル位置は変わらない。
+const toFull = (t) => t.replace(/[!-~]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0xFEE0)).replace(/ /g, "\u3000");
+function fitGenko(el) {
+  const full = toFull(el.value);
+  if (full !== el.value && !el.dataset.composing) { // 変換中は触らない
+    const a = el.selectionStart, b = el.selectionEnd;
+    el.value = full; el.setSelectionRange(a, b);
+  }
+  const cell = parseFloat(getComputedStyle(el).lineHeight);
+  const cols = Math.round(el.clientWidth / cell) || 20;
+  const base = Math.ceil(40 / cols);                       // 40字ぶんのマスは常に見せる
+  el.style.height = "0px";
+  const used = Math.round(el.scrollHeight / cell);
+  el.style.height = `${Math.max(base, used) * cell}px`;
+}
 
 // --- 辞書の取得 ---
 async function loadConjunctions() {
@@ -365,9 +408,10 @@ function insertConj(w) {
 // --- 判定と表示 ---
 let current = null; // 直近の判定結果（「残す」で使う）
 function update() {
+  fitGenko(s1); fitGenko(s2);
   const a = s1.value.trim(), b = s2.value.trim();
   const la = len(a), lb = len(b), total = la + lb;
-  $("c1").textContent = `${la}字`; $("c2").textContent = `${lb}字`;
+  $("c1").textContent = `${la} / 40字`; $("c2").textContent = `${lb} / 40字`;
   $("n1").textContent = la > 50 ? "長め。40字前後に" : "";
   $("n2").textContent = lb > 50 ? "長め。40字前後に" : "";
   $("total").textContent = total;
@@ -526,8 +570,12 @@ $("clear").onclick = () => {
   s1.value = ""; s2.value = ""; left = 120; showTime(); update(); s1.focus();
 };
 
-s1.addEventListener("input", update);
-s2.addEventListener("input", update);
+for (const el of [s1, s2]) {
+  el.addEventListener("input", update);
+  el.addEventListener("compositionstart", () => (el.dataset.composing = "1"));
+  el.addEventListener("compositionend", () => { delete el.dataset.composing; update(); });
+}
+addEventListener("resize", () => { fitGenko(s1); fitGenko(s2); });
 $("q").addEventListener("input", renderChips);
 $("kanaOnly").addEventListener("change", renderChips);
 
