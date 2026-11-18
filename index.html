@@ -9,10 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f6f4ef; --card: #ffffff; --text: #23211c; --muted: #6b675d;
-  --line: #ddd8cc; --accent: #2f6b4f; --accent-soft: #e3efe8;
-  --warn: #b5541c; --warn-soft: #fbeadf; --ok: #2f6b4f;
-  --paper: #fbf6ec; --shu: #d9573b; --shu-line: #ecb3a4;
+  /* 紙と墨と朱。朱＝先生の丸つけ（できた所）、墨の灰＝足りない所 */
+  --bg: #f3ecdf; --card: #fbf7ef; --text: #2b2622; --muted: #776c60;
+  --line: #e3d8c6; --accent: #b8432a; --accent-soft: #f6e0d6;
+  --warn: #4f453d; --warn-soft: #ebe3d6; --ok: #b8432a;
+  --paper: #fdf9f1; --shu: #b8432a; --shu-line: #ebb7a8;
   --mincho: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
 }
 * { box-sizing: border-box; }
@@ -22,7 +23,14 @@ body {
   line-height: 1.7;
 }
 main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
-h1 { font-size: 1.5rem; margin: 0 0 4px; }
+h1 { font-family: var(--mincho); font-size: 2rem; font-weight: 700; letter-spacing: .04em; margin: 0 0 4px; display: flex; align-items: center; gap: 12px; }
+/* タイトル横の判子（縦書きの「練習帳」） */
+.hanko {
+  writing-mode: vertical-rl; font-size: .62rem; line-height: 1.05; letter-spacing: 0; font-weight: 700;
+  color: var(--shu); border: 1.5px solid var(--shu); border-radius: 3px; padding: 3px 1px;
+  transform: rotate(-4deg); opacity: .9;
+}
+h2, label, .group h3, .conj-head strong, .total { font-family: var(--mincho); }
 .lead { color: var(--muted); margin: 0 0 20px; font-size: .95rem; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
 label { display: block; font-weight: 600; margin-bottom: 6px; }
@@ -65,7 +73,7 @@ textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
 .meter { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
 .meter > div { height: 100%; background: var(--accent); width: 0; transition: width .15s; }
 .meter.over > div { background: var(--warn); }
-.total { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.total { font-size: 2.4rem; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; }
 .checks { list-style: none; padding: 0; margin: 8px 0 0; }
 .checks li { padding: 2px 0; }
 .checks li::before { content: "○ "; color: var(--muted); }
@@ -128,6 +136,8 @@ details { font-size: .9rem; color: var(--muted); }
 .hist-list .actions { justify-content: flex-end; }
 .hist-list button { padding: 2px 12px; font-size: .85rem; }
 .more { display: block; margin: 8px auto 0; }
+.more[hidden] { display: none; } /* display:block が hidden 属性を上書きしないように */
+input[type="checkbox"] { accent-color: var(--accent); }
 /* 広い画面：左に入力と結果、右に接続詞欄（スクロールしても付いてくる） */
 @media (min-width: 1100px) {
   main {
@@ -146,7 +156,7 @@ summary { cursor: pointer; }
 </head>
 <body>
 <main>
-  <h1>R80 練習帳</h1>
+  <h1>R80 練習帳<span class="hanko" aria-hidden="true">練習帳</span></h1>
   <p class="lead">考えを<strong>2文・80字以内</strong>でパッと書く。2文目は必ず<strong>接続詞</strong>から始める。</p>
 
   <section class="card result">
