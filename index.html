@@ -90,6 +90,18 @@ button.sub { background: transparent; color: var(--accent); }
 .preview { font-size: 1.1rem; white-space: pre-wrap; min-height: 1.7em; }
 .preview .cj { background: var(--accent-soft); border-radius: 4px; padding: 0 2px; }
 details { font-size: .9rem; color: var(--muted); }
+.history h2 { font-size: 1.05rem; margin: 0 0 8px; }
+.history .empty { color: var(--muted); font-size: .9rem; margin: 0; }
+.hist-list { list-style: none; padding: 0; margin: 0; }
+.hist-list li { border-top: 1px solid var(--line); padding: 10px 0; }
+.hist-list li:first-child { border-top: none; padding-top: 0; }
+.hist-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hist-meta .ok { color: var(--ok); }
+.hist-meta .ng { color: var(--warn); }
+.hist-list .preview { margin: 4px 0; font-size: 1rem; }
+.hist-list .actions { justify-content: flex-end; }
+.hist-list button { padding: 2px 12px; font-size: .85rem; }
+.more { display: block; margin: 8px auto 0; }
 /* 広い画面：左に入力と結果、右に接続詞欄（スクロールしても付いてくる） */
 @media (min-width: 1100px) {
   main {
@@ -97,7 +109,7 @@ details { font-size: .9rem; color: var(--muted); }
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows: auto auto auto 1fr; /* 余った高さは最後の行へ（入力と結果の間を空けない） */
   }
-  main > h1, main > .lead, main > details { grid-column: 1 / -1; }
+  main > h1, main > .lead, main > details, main > .history { grid-column: 1 / -1; }
   .result { grid-column: 1; grid-row: 3; }
   .write { grid-column: 1; grid-row: 4; }
   .conj { grid-column: 2; grid-row: 3 / span 2; position: sticky; top: 16px; }
@@ -122,7 +134,7 @@ summary { cursor: pointer; }
     <ul class="keys" aria-label="キー操作">
       <li><kbd>Enter</kbd> 次の欄へ</li>
       <li><kbd>Alt</kbd>+<kbd>J</kbd> 接続詞を選ぶ</li>
-      <li><kbd>Alt</kbd>+<kbd>C</kbd> コピー</li>
+      <li><kbd>Alt</kbd>+<kbd>S</kbd> 残す（履歴＋コピー）</li>
       <li><kbd>Alt</kbd>+<kbd>R</kbd> 書き直す</li>
       <li><kbd>Alt</kbd>+<kbd>T</kbd> タイマー</li>
     </ul>
@@ -140,7 +152,7 @@ summary { cursor: pointer; }
     <textarea id="s2" rows="2" placeholder="Alt+J で接続詞を選ぶと、ここの先頭に入ります。"></textarea>
     <div class="row"><span id="c2">0字</span><span id="n2"></span></div>
     <div class="actions" style="justify-content:flex-end;margin-top:8px">
-      <button class="main" id="copy" type="button">コピー</button>
+      <button class="main" id="save" type="button" title="履歴に残し、クリップボードにコピーして、次の1本へ">残す</button>
       <button class="sub" id="clear" type="button">書き直す</button>
     </div>
   </section>
@@ -158,6 +170,13 @@ summary { cursor: pointer; }
       <div class="bar" id="bar" aria-hidden="true"><div class="thumb" id="thumb"></div></div>
     </div>
     <div class="status" id="status">辞書を読み込み中…</div>
+  </section>
+
+  <section class="card history">
+    <h2>履歴（<span id="histCount">0</span>本）</h2>
+    <p class="empty" id="histEmpty">「残す」を押すと、ここに日付つきで積み上がっていきます。</p>
+    <ul class="hist-list" id="histList"></ul>
+    <button class="sub more" id="more" type="button" hidden></button>
   </section>
 
   <details>
@@ -344,6 +363,7 @@ function insertConj(w) {
 }
 
 // --- 判定と表示 ---
+let current = null; // 直近の判定結果（「残す」で使う）
 function update() {
   const a = s1.value.trim(), b = s2.value.trim();
   const la = len(a), lb = len(b), total = la + lb;
@@ -362,6 +382,7 @@ function update() {
     [!b ? null : !!conj, conj ? `2文目が接続詞「${conj}」（${(typeOf.get(conj) || OTHER).name}）で始まる` : "2文目が接続詞で始まる"],
     [total === 0 ? null : total <= 80, `80字以内（あと${80 - total}字）`],
   ];
+  current = { a, b, total, conj, checks };
   $("checks").replaceChildren(...checks.map(([ok, text]) => {
     const li = document.createElement("li");
     li.className = ok === null || ok === "" ? "" : ok ? "ok" : "ng";
@@ -398,12 +419,87 @@ $("timerBtn").onclick = () => {
   s1.focus();
 };
 
-$("copy").onclick = async () => {
+// --- 履歴（このブラウザの localStorage にだけ保存） ---
+// 1件ごとに、あとから読んでも意味がわかる形で残す（日時はタイムゾーンつき ISO 8601、字数の単位は「字」）
+const HIST_KEY = "r80-history";
+const SHOW_FIRST = 5;
+let history = [], showAll = false;
+try { history = JSON.parse(localStorage.getItem(HIST_KEY) || "[]"); if (!Array.isArray(history)) history = []; } catch { history = []; }
+function saveHistory() { try { localStorage.setItem(HIST_KEY, JSON.stringify(history)); } catch {} }
+
+function isoLocal(d) {
+  const p = (n) => String(n).padStart(2, "0"), off = -d.getTimezoneOffset();
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}` +
+    `${off >= 0 ? "+" : "-"}${p(Math.floor(Math.abs(off) / 60))}:${p(Math.abs(off) % 60)}`;
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+function flash(btn, msg, back) { btn.textContent = msg; setTimeout(() => (btn.textContent = back), 1500); }
+
+function renderHistory() {
+  const list = $("histList");
+  const items = showAll ? history : history.slice(0, SHOW_FIRST);
+  $("histCount").textContent = history.length;
+  $("histEmpty").hidden = history.length > 0;
+  list.replaceChildren(...items.map((h) => {
+    const li = document.createElement("li");
+    const d = new Date(h.savedAt);
+    const meta = document.createElement("div"); meta.className = "hist-meta";
+    const when = document.createElement("time");
+    when.dateTime = h.savedAt;
+    when.textContent = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const chars = document.createElement("span"); chars.textContent = `${h.chars}字`;
+    const failed = h.rules.filter((r) => !r.ok);
+    const rule = document.createElement("span");
+    rule.className = failed.length ? "ng" : "ok";
+    rule.textContent = failed.length ? `✖ ${failed.map((r) => r.short).join("・")}` : `✔ ${h.rules.length}/${h.rules.length}`;
+    meta.append(when, chars, rule);
+
+    const pv = document.createElement("p"); pv.className = "preview";
+    if (h.conjunction && h.sentence2.startsWith(h.conjunction)) {
+      const span = document.createElement("span"); span.className = "cj"; span.textContent = h.conjunction;
+      pv.append(h.sentence1, span, h.sentence2.slice(h.conjunction.length));
+    } else pv.append(h.text);
+
+    const act = document.createElement("div"); act.className = "actions";
+    const cp = document.createElement("button"); cp.className = "sub"; cp.type = "button"; cp.textContent = "コピー";
+    cp.onclick = async () => flash(cp, (await copyText(h.text)) ? "コピーしました" : "コピーできませんでした", "コピー");
+    const del = document.createElement("button"); del.className = "sub"; del.type = "button"; del.textContent = "削除";
+    del.onclick = () => {
+      if (!confirm(`この1本を履歴から消しますか？（元に戻せません）\n\n${h.text}`)) return;
+      history = history.filter((x) => x !== h); saveHistory(); renderHistory();
+    };
+    act.append(cp, del);
+    li.append(meta, pv, act);
+    return li;
+  }));
+  const rest = history.length - SHOW_FIRST;
+  $("more").hidden = rest <= 0;
+  $("more").textContent = showAll ? "最新の5本だけ表示" : `もっと見る（${rest}本）`;
+}
+$("more").onclick = () => { showAll = !showAll; renderHistory(); };
+
+$("save").onclick = async () => {
   const text = $("preview").textContent;
-  if (!text) return;
-  try { await navigator.clipboard.writeText(text); $("copy").textContent = "コピーしました"; }
-  catch { $("copy").textContent = "コピーできませんでした"; }
-  setTimeout(() => ($("copy").textContent = "コピー"), 1500);
+  if (!text || !current) return;
+  const end = (t) => (t && !/[。！？!?]$/.test(t) ? t + "。" : t);
+  const shorts = ["2文", "1文ずつ", "接続詞", "80字超"];
+  history.unshift({
+    savedAt: isoLocal(new Date()),
+    text,
+    sentence1: end(current.a),
+    sentence2: end(current.b),
+    conjunction: current.conj || null,
+    conjunctionType: current.conj ? (typeOf.get(current.conj) || OTHER).name : null,
+    chars: current.total,
+    charLimit: 80,
+    rules: current.checks.map(([ok, label], i) => ({ ok: !!ok, label, short: shorts[i] })),
+  });
+  saveHistory(); showAll = false; renderHistory();
+  const copied = await copyText(text);
+  flash($("save"), copied ? "残してコピーしました" : "残しました（コピーは失敗）", "残す");
+  s1.value = ""; s2.value = ""; left = 120; showTime(); update(); s1.focus();
 };
 
 // --- 文章欄の Enter：1文目 → 2文目へ。改行は入れない（R80は2文だけ） ---
@@ -420,7 +516,7 @@ document.addEventListener("keydown", (e) => {
   if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return;
   const act = {
     KeyJ: () => { $("q").focus(); $("q").select(); },
-    KeyC: () => $("copy").click(),
+    KeyS: () => $("save").click(),
     KeyR: () => $("clear").click(),
     KeyT: () => $("timerBtn").click(),
   }[e.code];
@@ -440,6 +536,7 @@ try {
   if (Array.isArray(d)) { s1.value = d[0] || ""; s2.value = d[1] || ""; }
 } catch {}
 update();
+renderHistory();
 loadConjunctions();
 </script>
 </body>
